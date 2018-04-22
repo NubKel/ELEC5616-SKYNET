@@ -38,10 +38,11 @@ class StealthConn(object):
 
         # Default XOR algorithm can only take a key of length 32
         #self.cipher = XOR.new(shared_hash[:4])
-        temp = HC_256(shared_hash)
-        seed = ''.join(temp)
-        print("new key is :{}".format(new_key))
-        AES_key = tem[:16]
+        seed = "7f791366fd7bfea4e5b38e2375a8b2338d7758e8ee012468fb255232b64bc927"
+        new_seed = HC_256(seed)
+        print("new_seed is :{}".format(new_seed))
+        new_key = HC_256(shared_hash)
+        AES_key = new_key[:16]
         AES_iv = shared_hash[:16]
         self.cipher = AES.new(AES_key,AES.MODE_CBC,AES_iv)
 
@@ -132,14 +133,16 @@ def HC_256(string):
     W = list()
     K = [key[:4],key[4:8],key[8:12],key[12:16],key[16:20],key[20:24],key[24:28],key[28:32]]
     iv = [IV[:4],IV[4:8],IV[8:12],IV[12:16],IV[16:20],IV[20:24],IV[24:28],IV[28:32]]
+
     for  i in range(0,2560):
-        if (0<= i <=7):
+        if (0<=i & i<=7):
             W.append(str(K[i]))
-        if (8 <= i<= 15):
+        if (8 <=i & i<= 15):
             W.append(str(iv[i-8]))
-        if (16 <= i <= 2559):
+        if (16 <=i & i<= 2559):
             output = hex(int(str(f2(W[i-2])),16)+int(str(W[i-7]),16)+int(str(f1(W[i-15])),16)+i)
             W.append(str(output[len(output)-4:]))
+        
     global P
     global Q
     for i in range(0,1024):
@@ -147,21 +150,24 @@ def HC_256(string):
         Q.append(str(W[i+1536]))
     keystream = []
 
-    for i in range(0,16):
+    for i in range(0,4096):
         j = i%1024
-        if (i<8):
+        if (i%2048<1024):
             G1 = g1(P[(j-3)%1024],P[(j-1023)%1024])
             temp = str(hex(int(P[j],16)+int(P[(j-10)%1024],16)+G1))
-            P[j] = temp[len(temp)-3:]
-            result = str(hex(h1(P[(j-12)%1024]) ^ int(P[j],16)))
+            P[j] = temp[len(temp)-4:]
+            result = str(hex(h1(P[(j-12)%1024]) ^ int(P[j],16))[2:])
             keystream.append(result[len(result)-4:])
         else:
             G1 = int(str(g2(P[(j-3)%1024],P[(j-1023)%1024])),16)
             temp = str(hex(int(Q[j],16)+int(Q[(j-10)%1024],16)+G1))
-            Q[j] = temp[:3]
+            Q[j] = temp[len(temp)-4:]
             result = str(hex(h2(Q[(j-12)%1024]) ^ int(Q[j],16))[2:])
             keystream.append(result[len(result)-4:])
-    return keystream
+        final = ''.join(keystream)
+    P.clear()
+    Q.clear()
+    return final[:64]
 
 def bitrotation(x,bit):
     x1 = int(x,16)
@@ -190,5 +196,3 @@ def h1(x):
 
 def h2(x):
     return int(P[int(x[:1],16)],16)+int(P[256+int(x[1:2],16)],16)+int(P[512+int(x[2:3],16)],16)+int(P[768+int(x[3:],16)],16)
-
-
