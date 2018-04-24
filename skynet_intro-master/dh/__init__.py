@@ -3,6 +3,8 @@ from Crypto.Random import random
 
 from lib.helpers import read_hex
 
+import secrets
+
 # Project TODO: Is this the best choice of prime? Why? Why not? Feel free to replacasddsae!
 
 # 4096 bit safe prime for Diffie-Hellman key exchange
@@ -38,7 +40,7 @@ base  = 2
 def create_dh_key():
     # Creates a Diffie-Hellman key
     # Returns (public, private)
-    private_key = random.randint(0, int(2**8))
+    private_key = secrets.randbelow(1024)
     public_key = (base**private_key) %prime
     return (public_key, private_key)
 
