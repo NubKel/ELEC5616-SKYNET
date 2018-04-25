@@ -19,6 +19,7 @@ class StealthConn(object):
         self.server = server
         self.verbose = verbose
         self.shared_hash = None
+        self.hmac_mismatch = 0
         self.initiate_session()
 
     def initiate_session(self):
@@ -38,29 +39,30 @@ class StealthConn(object):
             print("Shared hash: {}".format(shared_hash))
             #print("Shared hash length: {}".format(len(shared_hash)))
             
-
+        #Using HC_256 stream cipher as a PRNG. Using shared_hash to generate the 256-bit key
+        #and the 128-bit IV for this communication.
         AES_key = HC_256(shared_hash)[:32]
-        #print("AES key is :{}".format(AES_key))
         AES_iv = HC_256(shared_hash)[:16]
-        #print("AES iv is :{}".format(AES_iv))
-
+        #Using block cipher AES with CBC mode.
         self.cipher = AES.new(AES_key,AES.MODE_CBC,AES_iv)
 
     def send(self, data):
         if self.cipher:
-            #Using PKCS7 padding,
+            #Using PKCS7 padding to extend the length of message to be multiple of 16
             data_after_padding = PCKS7_padding(data)
-            #Encrypt data by AES(CBC mode)
+            #Encrypt data 
             encrypted_data = self.cipher.encrypt(data_after_padding)
-            #Generate hmac_key by sharehash
+
+            #Generate a new nonces when Alice or Bob send/recive a message.
+            #Because Alice and Bob both know the shared_hash, so using the shared_hash as a seed
+            #the PRNG will generate same nonces. Using this nonces as the hmac_key to prevent 
+            #replay attack.
+            #(Assume there are not packet loss in transmission )
             hmac_key = bytes(HC_256(self.shared_hash).encode('utf-8'))
-            #print("Hmac_key:{}".format(hmac_key))
             #Update the seed
             self.shared_hash = hmac_key.hex()
-            #HMAC with SHA384
-           # encrypted_data_Mac = Hmac_SHA384(encrypted_data,hmac_key)
+            #Sign the message by adding a HMAC(sha384), then append the HMAC to the end.
             encrypted_data_Mac = Sign(hmac_key,encrypted_data)
-            #Appending MAC to the message
             send_data = encrypted_data+encrypted_data_Mac
             if self.verbose:
                 print("Original data: {}".format(data))
@@ -82,20 +84,34 @@ class StealthConn(object):
 
         receive_data = self.conn.recv(pkt_len)
         if self.cipher:
-            #Recover the MAC
+            #Recover the HMAC
             encrypted_data_mac = receive_data[-48:]
             #Recover the data
             encrypted_data =  receive_data[:-48]
             
-            hmac_key = bytes(HC_256(self.shared_hash).encode('utf-8'))
-            self.shared_hash = hmac_key.hex()
-            #Check whether our calculate MAC match with receive MAC
-            #calculate_mac = Hmac_SHA384(encrypted_data,hmac_key)
-            calculate_mac = Sign(hmac_key,encrypted_data)
-            if(not hmac.compare_digest(calculate_mac,encrypted_data_mac)):
-                print("Data were modifiered")
-                return 
 
+            
+            if(self.hmac_mismatch != 1):
+                #Get the a new nonces, and update the shared_hash.
+                #Check whether our calculated HMAC match with received HMAC
+                #If these two HMACs is not match, then  raise the hmac_mismatch flag,
+                #and keep the nonces for new next time.
+                hmac_key = bytes(HC_256(self.shared_hash).encode('utf-8'))
+                self.shared_hash = hmac_key.hex()
+                calculated_mac = Sign(hmac_key,encrypted_data)
+                if(not hmac.compare_digest(calculated_mac,encrypted_data_mac)):
+                    print("Data were modifiered")
+                    self.hmac_mismatch = 1
+                    return     
+            else:
+                calculated_mac = Sign(self.shared_hash,encrypted_data)
+                if(not hmac.compare_digest(calculated_mac,encrypted_data_mac)):
+                    print("Data were modifiered")
+                    return
+                #clear the flag if the HMAC match
+                self.hmac_mismatch = 0
+
+            #Decrypt the data
             data = self.cipher.decrypt(encrypted_data)
             #Remove padding 
             data = data[:-data[-1]]
@@ -115,23 +131,11 @@ class StealthConn(object):
         self.conn.close()
     
 
-def Hmac_SHA384(message, key):
-        number_of_block = len(key)
-        opad = bytes([92])*number_of_block #hex 0x5c
-        ipad = bytes([54])*number_of_block #hex 0x36
-        opad_key = bytes_XOR(opad,key)
-        ipad_key = bytes_XOR(ipad,key)
-        internal_hmac = SHA384.new(ipad_key+message).digest()
-        return SHA384.new(opad_key+internal_hmac).digest()
-
+#Sign our encrypted data with our key 
+#The reason of using SHA384 is to avoid the length extension attack
 def Sign(key,encrypted_data):
         return hmac.new(key,encrypted_data,SHA384).digest()
 
-def bytes_XOR(byte1,byte2):
-        result = bytearray(byte1)
-        for i,b in enumerate(byte2):
-            result[i] ^=b
-        return bytes(result)
 
 def PCKS7_padding(data):
         original_len = len(data)
