@@ -8,8 +8,9 @@ import secrets
 
 # 4096 bit safe prime for Diffie-Hellman key exchange
 # obtained from RFC 3526
-# The reason for using 4096-bit MODP group rather than 1536-bit MODP group is to increase the level of security.
-# 
+# 4096-bit MODP group is used rather than 1536-bit MODP group because
+# it is longer, therefore increases private key space which enhances 
+# security
 raw_prime = """FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1
       29024E08 8A67CC74 020BBEA6 3B139B22 514A0879 8E3404DD
       EF9519B3 CD3A431B 302B0A6D F25F1437 4FE1356D 6D51C245
@@ -39,10 +40,10 @@ base  = 2
 # Project TODO: write the appropriate code to perform DH key exchange
 
 def create_dh_key():
-    # Creates a Diffie-Hellman key. My private key have to be greater than the square root of 4096 which is 64.
-    # To ensure the shared_secret before mod can be larger than the prime. But the private key length can not be too larger,
-    # otherwise it will be too computationally expensive.Hence I choose the private key size to be 8-bit
-    private_key = random.randint(0,256)
+    # Creates a Diffie-Hellman key. My private key has to be greater than the square root of 4096 (which is 64)
+    # to ensure the shared_secret before mod can be larger than the prime. But the private key length can not 
+    # be too larger, otherwise it will be too computationally expensive.Hence the private key size is set to be 8-bit
+    private_key = secrets.randbelow(256)
     public_key = (base**private_key) %prime
     return (public_key, private_key)
 
