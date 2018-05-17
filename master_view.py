@@ -4,11 +4,12 @@ from Crypto.PublicKey import RSA
 
 
 def decrypt_valuables(f):
-    # TODO: For Part 2, you'll need to decrypt the contents of this file
-    # The existing scheme uploads in plaintext
-    # As such, we just convert it back to ASCII and print it out
+    #decrypt files using master's private key
+
+    #load private key
     key = RSA.importKey(open('privkey.pem').read())
     cipher = PKCS1_v1_5.new(key)
+    #decrypt the ciphertext
     plaintext = cipher.decrypt(f,1)
     plaintext = plaintext.decode('utf-8')
     print(plaintext)
